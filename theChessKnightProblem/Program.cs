@@ -1,6 +1,4 @@
-﻿
-
-string data = "abcdefghijklmnopqrstuvwxyz";
+﻿string data = "abcdefghijklmnopqrstuvwxyz";
 
 IEnumerator<(int, int)> TryNewLen(int size1, int size2)
 {
@@ -8,9 +6,9 @@ IEnumerator<(int, int)> TryNewLen(int size1, int size2)
     var count = (size1 + size2);
     while (true)
     {
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i <= count; i++)
         {
-            yield return ( i, (count - i));
+            yield return (i, (count - i));
         }
 
         count++;
@@ -43,7 +41,7 @@ IEnumerable<(int A, int B)> GetKnightPos((int A, int B) startPos)
     badPoints ??= new List<(int A, int B)>();
     int setup = 0;
     var graph = new Dictionary<int, Dictionary<(int A, int B ), List<(int A, int B)>>>();
-    // Console.WriteLine("-------------------");
+    //Console.WriteLine("-------------------");
     var allPoints = new HashSet<(int A, int B)>() {start};
     IEnumerable<(int A, int B)> currentPoints = new List<(int A, int B)>() {start};
     IEnumerable<(int A, int B)> nextPoints = new HashSet<(int A, int B)>() { };
@@ -52,16 +50,20 @@ IEnumerable<(int A, int B)> GetKnightPos((int A, int B) startPos)
         graph[setup] = new Dictionary<(int A, int B), List<(int A, int B)>>();
         foreach (var currentPoint in currentPoints)
         {
-            // Console.WriteLine($"{data[currentPoint.A]}{currentPoint.B + 1}");
+            //Console.WriteLine($"{data[currentPoint.A]}{currentPoint.B + 1}");
             var nextP = GetKnightPos(currentPoint);
 
+            if (minSetups > setup)
+            {
+                nextP = nextP.Except(new[] {finish});
+            }
 
             graph[setup][currentPoint] = nextP.ToList();
 
             nextPoints = nextPoints.Union(nextP);
         }
 
-        // Console.WriteLine("-------------------");
+        //Console.WriteLine("-------------------");
 
         if (minSetups > setup)
         {
@@ -79,10 +81,10 @@ IEnumerable<(int A, int B)> GetKnightPos((int A, int B) startPos)
         setup++;
     }
 
-    // foreach (var valueTuple in nextPoints)
-    // {
-    //     Console.WriteLine($"{data[valueTuple.A]}{valueTuple.B + 1}");
-    // }
+    foreach (var valueTuple in nextPoints)
+    {
+        //Console.WriteLine($"{data[valueTuple.A]}{valueTuple.B + 1}");
+    }
 
     var reversedGraph = new Dictionary<(int A, int B ), List<(int A, int B)>>();
     var reversedGraphBySteps = new Dictionary<int, Dictionary<(int A, int B ), List<(int A, int B)>>>();
@@ -127,25 +129,28 @@ IEnumerable<(int A, int B)> GetKnightPos((int A, int B) startPos)
         }
     }
 
-    // for (var i = d.Count - 1; i >= 0; i--)
-    // {
-    //     Console.WriteLine($"{i}: {string.Join(", ", d[i].Select(x => $"{data[x.A]}{x.B + 1}"))}");
-    // }
+    for (var i = d.Count - 1; i >= 0; i--)
+    {
+        //Console.WriteLine($"{i}: {string.Join(", ", d[i].Select(x => $"{data[x.A]}{x.B + 1}"))}");
+    }
 
-    // Console.WriteLine("==============");
+    //Console.WriteLine("==============");
     return (graph: reversedGraph, len: setup);
 }
 
 
-List<(int A, int B)>? GetNextStep(
+(List<(int A, int B)>?, bool) GetNextStep(
     Dictionary<(int A, int B), List<(int A, int B)>> stepMap,
     List<(int A, int B)> stepHistory,
     List<(int A, int B)> badPos,
     List<(int A, int B)> NodesShouldUnique
 )
 {
+    var possibleHistories = new List<List<(int A, int B)>>() { };
+
     (int A, int B)? lastHistoryItem = null;
     var newHistory = stepHistory.Select(x => x).ToList();
+    NodesShouldUnique.Add(stepHistory[0]);
 
 
     for (var i = stepHistory.Count - 1; i >= 0; i--)
@@ -180,7 +185,11 @@ List<(int A, int B)>? GetNextStep(
             if (!badPos.Contains(valueTuple))
             {
                 newHistory.Add(valueTuple);
-                return newHistory;
+                return (newHistory, true);
+            }
+            else
+            {
+                possibleHistories.Add(newHistory.Select(x => x).ToList());
             }
         }
 
@@ -188,10 +197,12 @@ List<(int A, int B)>? GetNextStep(
         newHistory.Remove(historyItem);
     }
 
-    return null;
+    var minNotFinalHistory = possibleHistories.MinBy(x => x.Count);
+
+    return (minNotFinalHistory, false);
 }
 
-(List<(int A, int B)>, List<(int A, int B)>) OneSetupSequence(
+(List<(int A, int B)>, List<(int A, int B)>, bool) OneSetupSequence(
     List<(int A, int B)> currentHistory,
     (int A, int B) currentFinish,
     List<(int A, int B)> badFieldsForMe,
@@ -199,20 +210,36 @@ List<(int A, int B)>? GetNextStep(
     Dictionary<(int A, int B), List<(int A, int B)>> currentSetupMap
 )
 {
+    var possibleHistories = new List<List<(int A, int B)>>() { };
+
     var startedCurrentHistory = currentHistory.Select(x => x).ToList();
+    var lastPos = currentHistory[^1];
     while (currentHistory.Count != 0 & !currentHistory.Contains(currentFinish))
     {
-        var lastPos = currentHistory[^1];
+        lastPos = currentHistory[^1];
         var NodesShouldUnique = new List<(int A, int B)>() { };
         for (var i = startedCurrentHistory.Count - 1; i < currentHistory.Count; i++)
         {
             NodesShouldUnique.Add(currentHistory[i]);
         }
 
-        var newHistory1 = GetNextStep(currentSetupMap, currentHistory, badFieldsForMe, NodesShouldUnique);
-        if (newHistory1 == null)
+        (var newHistory1, var isFinalHistory) =
+            GetNextStep(currentSetupMap, currentHistory, badFieldsForMe, NodesShouldUnique);
+        if (isFinalHistory == false)
         {
-            break;
+            if (newHistory1.Count > 0)
+            {
+                possibleHistories.Add(newHistory1.Select(x => x).ToList());
+                // currentHistory = newHistory1.Select(x => x).ToList();
+                // badFieldsForOther.Remove(lastPos);
+                // badFieldsForOther.Add(currentHistory[^1]);
+                break;
+                // return (currentHistory, badFieldsForOther, false);
+            }
+            else
+            {
+                break;
+            }
         }
 
         currentHistory = newHistory1.Select(x => x).ToList();
@@ -220,7 +247,7 @@ List<(int A, int B)>? GetNextStep(
         badFieldsForOther.Add(currentHistory[^1]);
     }
 
-    return (currentHistory, badFieldsForOther);
+    return (currentHistory, badFieldsForOther, true);
 }
 
 (List<(int Knight, (int A, int B) Cell)>?, IEnumerator<(int, int)>) GetNotMinimizeAnswer(
@@ -249,6 +276,8 @@ List<(int A, int B)>? GetNextStep(
     var history2 = new List<(int A, int B)> {start2};
     var histiry1TranslateToSequenceIndex = 0;
     var histiry2TranslateToSequenceIndex = 0;
+    var lastHistiry1TranslateToSequenceIndex = 0;
+    var lastHistiry2TranslateToSequenceIndex = 0;
 
 
     var lastHistory1 = new List<(int A, int B)> {start1};
@@ -267,8 +296,10 @@ List<(int A, int B)>? GetNextStep(
     while (history1[^1] != finish1 || history2[^1] != finish2)
     {
         lastSetupsSequence = setupsSequence.Select(x => x).ToList();
+        lastHistiry1TranslateToSequenceIndex = histiry1TranslateToSequenceIndex;
+        lastHistiry2TranslateToSequenceIndex = histiry2TranslateToSequenceIndex;
         lastHistory1 = history1;
-        (history1, badFields2) = OneSetupSequence(history1, finish1, badFields1, badFields2, setupMap1);
+        (history1, badFields2, _) = OneSetupSequence(history1, finish1, badFields1, badFields2, setupMap1);
         foreach (var valueTuple in history1.Where((i, index) => index > histiry1TranslateToSequenceIndex))
         {
             setupsSequence.Add((Knight: knight1, Cell: valueTuple));
@@ -278,7 +309,7 @@ List<(int A, int B)>? GetNextStep(
 
 
         lastHistory2 = history2;
-        (history2, badFields1) = OneSetupSequence(history2, finish2, badFields2, badFields1, setupMap2);
+        (history2, badFields1, _) = OneSetupSequence(history2, finish2, badFields2, badFields1, setupMap2);
         foreach (var valueTuple in history2.Where((i, index) => index > histiry2TranslateToSequenceIndex))
         {
             setupsSequence.Add((Knight: knight2, Cell: valueTuple));
@@ -297,6 +328,8 @@ List<(int A, int B)>? GetNextStep(
             (knight1, knight2) = (knight2, knight1);
             tryReverse = true;
             setupsSequence = lastSetupsSequence;
+            histiry1TranslateToSequenceIndex = lastHistiry1TranslateToSequenceIndex;
+            histiry2TranslateToSequenceIndex = lastHistiry2TranslateToSequenceIndex;
             (len1, len2) = (len2, len1);
             (oldLen1, oldLen2) = (oldLen2, oldLen1);
             shouldReverse = false;
@@ -318,6 +351,8 @@ List<(int A, int B)>? GetNextStep(
                 (knight1, knight2) = (knight2, knight1);
                 tryReverse = true;
                 setupsSequence = lastSetupsSequence;
+                histiry1TranslateToSequenceIndex = lastHistiry1TranslateToSequenceIndex;
+                histiry2TranslateToSequenceIndex = lastHistiry2TranslateToSequenceIndex;
                 (len1, len2) = (len2, len1);
                 (oldLen1, oldLen2) = (oldLen2, oldLen1);
             }
@@ -330,6 +365,15 @@ List<(int A, int B)>? GetNextStep(
             (setupMap1, len1) = SolutionFinder(finish1, start1, minSetups1, new List<(int A, int B)>() {history2[^1]});
             (setupMap2, len2) = SolutionFinder(finish2, start2, minSetups2, new List<(int A, int B)>() {history1[^1]});
             setupsSequence = new List<(int Knight, (int A, int B) Cell)>();
+            histiry1TranslateToSequenceIndex = 0;
+            histiry2TranslateToSequenceIndex = 0;
+            history1 = new List<(int A, int B)>() {start1};
+            history2 = new List<(int A, int B)>() {start2};
+            lastHistory1 = new List<(int A, int B)>() {start1};
+            lastHistory2 = new List<(int A, int B)>() {start2};
+            badFields1 = new List<(int A, int B)> {start2};
+            badFields2 = new List<(int A, int B)> {start1};
+
             if (len1 + len2 > MaximumSetups)
             {
                 return (null, newLenIterator);
@@ -345,10 +389,11 @@ List<(int A, int B)>? GetNextStep(
     }
 
 
-    // foreach (var valueTuple in setupsSequence)
-    // {  
-    //     Console.WriteLine($"{valueTuple.Knight} {data[valueTuple.Cell.A]}{valueTuple.Cell.B + 1}");
-    // }
+    foreach (var valueTuple in setupsSequence)
+    {
+        //Console.WriteLine($"{valueTuple.Knight} {data[valueTuple.Cell.A]}{valueTuple.Cell.B + 1}");
+    }
+
     return (setupsSequence, newLenIterator!);
 }
 
@@ -356,7 +401,8 @@ void Main((int A, int B) start1, (int A, int B) start2, (int A, int B) finish1, 
 {
     IEnumerator<(int, int)>? newLenIterator = null;
 
-    (var setupsSequence, newLenIterator) = GetNotMinimizeAnswer(start1, start2, finish1, finish2, newLenIterator, int.MaxValue);
+    (var setupsSequence, newLenIterator) =
+        GetNotMinimizeAnswer(start1, start2, finish1, finish2, newLenIterator, int.MaxValue);
 
     var minimumSetups = setupsSequence.Count;
     var optimalSequence = setupsSequence.Select(x => x).ToList();
@@ -364,9 +410,10 @@ void Main((int A, int B) start1, (int A, int B) start2, (int A, int B) finish1, 
     var genMinLen = len1 + len2;
     while ((newLenIterator.Current.Item1 + newLenIterator.Current.Item2) <= minimumSetups)
     {
-        (setupsSequence, newLenIterator) = GetNotMinimizeAnswer(start1, start2, finish1, finish2, newLenIterator, minimumSetups);
-        ( len1,  len2) = newLenIterator.Current;
-         genMinLen = len1 + len2;
+        (setupsSequence, newLenIterator) =
+            GetNotMinimizeAnswer(start1, start2, finish1, finish2, newLenIterator, minimumSetups);
+        (len1, len2) = newLenIterator.Current;
+        genMinLen = len1 + len2;
 
         if (setupsSequence != null & setupsSequence?.Count < minimumSetups)
         {
@@ -374,10 +421,10 @@ void Main((int A, int B) start1, (int A, int B) start2, (int A, int B) finish1, 
             optimalSequence = setupsSequence.Select(x => x).ToList();
         }
     }
-    
-    
+
+    Console.WriteLine(optimalSequence.Count);
     foreach (var valueTuple in optimalSequence)
-    {  
+    {
         Console.WriteLine($"{valueTuple.Knight} {data[valueTuple.Cell.A]}{valueTuple.Cell.B + 1}");
     }
 }
